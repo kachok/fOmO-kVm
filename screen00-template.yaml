@@ -1,0 +1,115 @@
+
+esphome:
+  name: screen00
+  comment: ESPHome screen
+  friendly_name: Friendly ESPHome based screen
+  area: TBD/Unknown 
+
+esp32:
+  variant: esp32s2
+  board: lolin_s2_mini 
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  password: ""
+
+ota:
+  - platform: esphome
+    password: ""
+
+wifi:
+  ssid: "***"
+  password: "***"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "screen00 Fallback Hotspot"
+    password: "***"
+
+captive_portal:
+
+# ---- I2C for Touch (CST816 family) ----
+i2c:
+  sda: GPIO6
+  scl: GPIO7
+  scan: true
+  frequency: 400kHz
+  id: bus_a
+
+
+# ---- Touchscreen: CST816 family ----
+touchscreen:
+  - platform: cst816
+    id: touch
+    i2c_id: bus_a
+    interrupt_pin: GPIO17
+    reset_pin: GPIO16
+    on_touch:
+      then:
+        - logger.log: "Touch!"
+
+# ---- SPI for the LCD ----
+spi:
+  clk_pin: GPIO36              # LCD_SCL/SCK
+  mosi_pin: GPIO35             # LCD_SDA/MOSI
+
+# --- Fonts (top-level, NOT under lvgl) ---
+font:
+  - file: "gfonts://Roboto"
+    id: font32
+    size: 32
+
+# LED for backlit screen
+output:
+  - platform: ledc
+    pin: GPIO18
+    id: gpio_18
+
+# Light for backlit screen
+light:
+  - platform: monochromatic
+    output: gpio_18
+    name: "Backlit for screen"
+    restore_mode: ALWAYS_ON   # also turns on after power loss
+    initial_state:
+      state: "ON"
+      brightness: 0.5   # 50% brightness
+
+# ---- ST7789V2 display over SPI ----
+display:
+  - platform: mipi_spi 
+    model: ST7789V
+    id: tft
+    cs_pin: GPIO34             # LCD_CS
+    dc_pin: GPIO39             # LCD_DC
+    reset_pin: GPIO40          # LCD_RST
+    #backlight_pin: GPIO18      # LCD_BL (PWM dimming possible later)
+    data_rate: 20MHz
+    rotation: 90
+    color_order: rgb            # you used RGB; keep it
+    invert_colors: true
+    dimensions:
+      width: 280
+      height: 240
+      offset_width: 20        # rotation=90 ⇒ 20 on width
+      offset_height: 0
+
+#image widget
+image:
+  - file: "fomokvm_280x240.png"   # PNG/JPG/BMP allowed; converted at compile time
+    id: img_logo
+    type: RGB565         # good for color TFTs
+    # resize: 120x120    # optional; pre-scale to save RAM/flash
+
+lvgl:
+  buffer_size: 25%   # recommended without/with limited internal RAM
+  # pages/widgets...
+  pages:
+    - id: page_home
+      widgets:
+        - image:
+            src: img_logo   # <-- references the top-level image id
+            align: CENTER   # or use x:/y: offsets if you prefer
